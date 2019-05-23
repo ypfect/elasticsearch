@@ -1,0 +1,93 @@
+<project name="build-zip" basedir="." default="fileExists">
+
+
+	<property name="project" value="service_elasticsearch" />
+
+	<property name="add_lib_info" value="是否打包所有jar包?"/>
+	<property name="finish_info" value="打包完成" />
+	<property name="isAddJarAndRes" value="y" />
+	<property name="password" value="${defaltpwd}" />
+
+	<target name="fileExists">
+		<echo>check tar file is exists ...... ${project},env:${env}</echo>
+		<condition property="fileIsExists">
+			<and>
+				<available file="target/${project}.jar" />
+			</and>
+		</condition>
+		<condition property="isSetEnv">
+			<not>
+				<equals arg1="${env}" arg2=""/>
+			</not>
+		</condition>
+
+		<antcall target="checkRequiredFiles"/>
+		<antcall target="default"/>
+
+	</target>
+
+	<target name="checkRequiredFiles" if="fileIsExists">
+		<condition property="addAll">
+			<and>
+				<equals arg1="${full}" arg2="y" />
+				<equals arg1="${isAddJarAndRes}" arg2="y" />
+			</and>
+		</condition>
+
+		<condition property="addJarAndRes">
+			<equals arg1="${isAddJarAndRes}" arg2="y" />
+		</condition>
+
+		<condition property="needInputPwd">
+			<equals arg1="${inputpwd}" arg2="true" />
+		</condition>
+
+		<antcall target="zipAddAll" />
+		<antcall target="zipAddJarAndRes" />
+
+	</target>
+
+	<target name="default" unless="isSetEnv">
+		<echo>线上环境打包...</echo>
+		<zip destfile="target/${project}.zip" duplicate="add">
+			<zipfileset dir="target" includes="${project}.jar" prefix="" />
+			<zipfileset dir="target/explorer"  includes="**/*.*" prefix="lib" />
+		</zip>
+	</target>
+
+	<!-- 打包jar res目录 和 lib包 -->
+	<target name="zipAddAll" if="addAll">
+		<echo>正在压缩以下文件:${project}.jar res/* lib/* </echo>
+		<!-- duplicate：定义当出现重复文件时的处理方式。可取值add、preserve和fail。add代表依然添加（覆盖）文件，preserve代表不打包重复文件，fail代表将打包失败。默认      为add。 -->
+		<zip destfile="target/${project}.zip" duplicate="add">
+			<zipfileset dir="target" includes="${project}.jar" prefix="" />
+			<zipfileset dir="target/lib"  includes="**/*.*" prefix="lib" />
+		</zip>
+		<antcall target="upload" />
+		<echo>${finish_info}</echo>
+	</target>
+
+
+	<target name="zipAddJarAndRes" unless="addAll" if="addJarAndRes">
+		<echo>压缩:${project}.jar  res/*</echo>
+		<zip destfile="target/${project}.zip" duplicate="add">
+			<zipfileset dir="target" includes="${project}.jar" prefix="" />
+			<zipfileset dir="target/explorer" prefix="lib" />
+		</zip>
+		<antcall target="upload" />
+		<echo>${finish_info}</echo>
+	</target>
+
+	<target name="inputPwd" if="needInputPwd">
+		<input addproperty="password" message="输入密码" />
+	</target>
+
+	<target name="upload" depends="inputPwd" if="isSetEnv">
+		<echo>正在上传文件 ......</echo>
+
+		<scp file="target/${project}.zip" todir="${user}:${password}@${distaddr}:${distpath}" trust="true" verbose="true" sftp="${sftp}">
+		</scp>
+	</target>
+
+
+</project>
